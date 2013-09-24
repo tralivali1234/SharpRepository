@@ -50,6 +50,7 @@ Thumbs.db
 
 # Integration Test Output #
 ###########################
-**/Data/Ef/**
+**/Data/Ef5/**
+**/Data/Ef6/**
 **/Data/Xml/**
 **/Data/Db4o/**

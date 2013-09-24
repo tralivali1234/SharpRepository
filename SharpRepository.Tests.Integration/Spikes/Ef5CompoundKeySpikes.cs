@@ -2,7 +2,7 @@
 using System.Data.Entity.Infrastructure;
 using System.Linq;
 using NUnit.Framework;
-using SharpRepository.Ef5Repository;
+using SharpRepository.Ef6Repository;
 using SharpRepository.Repository;
 using SharpRepository.Tests.Integration.Data;
 using SharpRepository.Tests.Integration.TestObjects;
@@ -24,9 +24,9 @@ namespace SharpRepository.Tests.Integration.Spikes
         [Test]
         public void CompoundKeyRepository_Should_Work()
         {
-            var dbPath = EfDataDirectoryFactory.Build();
+            var dbPath = Ef5DataDirectoryFactory.Build();
             Database.DefaultConnectionFactory = new SqlCeConnectionFactory("System.Data.SqlServerCe.4.0");
-            ICompoundKeyRepository<User, string, int> repository = new Ef5Repository<User, string, int>(new TestObjectEntities("Data Source=" + dbPath));
+            ICompoundKeyRepository<User, string, int> repository = new Ef6Repository<User, string, int>(new TestObjectEntities("Data Source=" + dbPath));
 
             repository.Add(new User { Username = "jeff", Age = 21, FullName = "Jeff - 21" });
             repository.Add(new User { Username = "jeff", Age = 31, FullName = "Jeff - 31" });
@@ -46,9 +46,9 @@ namespace SharpRepository.Tests.Integration.Spikes
         [Test]
         public void CompoundKeyRepositoryNoGenerics_Should_Work()
         {
-            var dbPath = EfDataDirectoryFactory.Build();
+            var dbPath = Ef5DataDirectoryFactory.Build();
             Database.DefaultConnectionFactory = new SqlCeConnectionFactory("System.Data.SqlServerCe.4.0");
-            ICompoundKeyRepository<User> repository = new Ef5CompoundKeyRepository<User>(new TestObjectEntities("Data Source=" + dbPath));
+            ICompoundKeyRepository<User> repository = new Ef6CompoundKeyRepository<User>(new TestObjectEntities("Data Source=" + dbPath));
 
             repository.Add(new User { Username = "jeff", Age = 21, FullName = "Jeff - 21" });
             repository.Add(new User { Username = "jeff", Age = 31, FullName = "Jeff - 31" });

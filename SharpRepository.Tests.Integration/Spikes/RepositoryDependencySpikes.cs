@@ -2,7 +2,7 @@
 using System.Data.Entity.Infrastructure;
 using System.Reflection;
 using NUnit.Framework;
-using SharpRepository.Ef5Repository;
+using SharpRepository.Ef6Repository;
 using SharpRepository.Ioc.StructureMap;
 using SharpRepository.Repository;
 using SharpRepository.Repository.Ioc;
@@ -20,7 +20,7 @@ namespace SharpRepository.Tests.Integration.Spikes
         [SetUp]
         public void Setup()
         {
-            var dbPath = EfDataDirectoryFactory.Build();
+            var dbPath = Ef6DataDirectoryFactory.Build();
             Database.DefaultConnectionFactory = new SqlCeConnectionFactory("System.Data.SqlServerCe.4.0");
 
             // structure map
@@ -34,19 +34,19 @@ namespace SharpRepository.Tests.Integration.Spikes
         }
 
         [Test]
-        public void Ef5ConfigRepositoryFactory_Using_Ioc_Should_Not_Require_ConnectionString()
+        public void Ef6ConfigRepositoryFactory_Using_Ioc_Should_Not_Require_ConnectionString()
         {
-            var config = new Ef5RepositoryConfiguration("TestConfig", null, typeof (TestObjectEntities));
-            var factory = new Ef5ConfigRepositoryFactory(config);
+            var config = new Ef6RepositoryConfiguration("TestConfig", null, typeof (TestObjectEntities));
+            var factory = new Ef6ConfigRepositoryFactory(config);
 
             factory.GetInstance<Contact, string>();
         }
 
         [Test]
-        public void Ef5ConfigRepositoryFactory_Using_Ioc_Should_Return_TestObjectEntites_Without_DbContextType_Defined()
+        public void Ef6ConfigRepositoryFactory_Using_Ioc_Should_Return_TestObjectEntites_Without_DbContextType_Defined()
         {
-            var config = new Ef5RepositoryConfiguration("TestConfig");
-            var factory = new Ef5ConfigRepositoryFactory(config);
+            var config = new Ef6RepositoryConfiguration("TestConfig");
+            var factory = new Ef6ConfigRepositoryFactory(config);
 
             var repos = factory.GetInstance<Contact, string>();
 
@@ -56,10 +56,10 @@ namespace SharpRepository.Tests.Integration.Spikes
         }
 
         [Test]
-        public void Ef5ConfigRepositoryFactory_Using_Ioc_Should_Share_DbContext()
+        public void Ef6ConfigRepositoryFactory_Using_Ioc_Should_Share_DbContext()
         {
-            var config = new Ef5RepositoryConfiguration("TestConfig", "tmp", typeof (TestObjectEntities));
-            var factory = new Ef5ConfigRepositoryFactory(config);
+            var config = new Ef6RepositoryConfiguration("TestConfig", "tmp", typeof (TestObjectEntities));
+            var factory = new Ef6ConfigRepositoryFactory(config);
 
             var repos1 = factory.GetInstance<Contact, string>();
             var repos2 = factory.GetInstance<Contact, string>();

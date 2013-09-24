@@ -9,13 +9,13 @@
                 return new[]
                            {
                                RepositoryType.InMemory,
-                               RepositoryType.Dbo4,
-                               RepositoryType.RavenDb,
-                               RepositoryType.Xml,
-                               RepositoryType.MongoDb,
-                               RepositoryType.Ef5,
-                               RepositoryType.Cache,
-                               RepositoryType.CouchDb
+//                               RepositoryType.Dbo4,
+//                               RepositoryType.RavenDb,
+//                               RepositoryType.Xml,
+//                               RepositoryType.MongoDb,
+                               RepositoryType.Ef6,
+//                               RepositoryType.Cache,
+//                               RepositoryType.CouchDb
                            };
             }
         }
@@ -27,8 +27,8 @@
                 return new[]
                            {
                                RepositoryType.InMemory,
-                               RepositoryType.Ef5,
-                               RepositoryType.Cache
+                               RepositoryType.Ef6,
+//                               RepositoryType.Cache
                            };
             }
         }

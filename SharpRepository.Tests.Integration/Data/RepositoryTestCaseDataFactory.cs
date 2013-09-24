@@ -9,7 +9,7 @@ using SharpRepository.CouchDbRepository;
 using SharpRepository.Db4oRepository;
 using SharpRepository.Tests.Integration.TestObjects;
 using SharpRepository.XmlRepository;
-using SharpRepository.Ef5Repository;
+using SharpRepository.Ef6Repository;
 using SharpRepository.RavenDbRepository;
 using SharpRepository.MongoDbRepository;
 using SharpRepository.InMemoryRepository;
@@ -34,12 +34,21 @@ namespace SharpRepository.Tests.Integration.Data
                     new TestCaseData(new XmlRepository<Contact, string>(xmlDataDirectoryPath)).SetName("XmlRepository Test");
             }
 
-            if (includeType.Contains(RepositoryType.Ef5))
+//            if (includeType.Contains(RepositoryType.Ef5))
+//            {
+//                var dbPath = Ef5DataDirectoryFactory.Build();
+//                Database.DefaultConnectionFactory = new SqlCeConnectionFactory("System.Data.SqlServerCe.4.0");
+//                yield return
+//                    new TestCaseData(new Ef5Repository<Contact, string>(new TestObjectEntities("Data Source=" + dbPath))).SetName("Ef5Repository Test");
+//            }
+
+            if (includeType.Contains(RepositoryType.Ef6))
             {
-                var dbPath = EfDataDirectoryFactory.Build();
+                var dbPath = Ef6DataDirectoryFactory.Build();
+                
                 Database.DefaultConnectionFactory = new SqlCeConnectionFactory("System.Data.SqlServerCe.4.0");
                 yield return
-                    new TestCaseData(new Ef5Repository<Contact, string>(new TestObjectEntities("Data Source=" + dbPath))).SetName("EfRepository Test");
+                    new TestCaseData(new Ef6Repository<Contact, string>(new TestObjectEntities("Data Source=" + dbPath))).SetName("Ef6Repository Test");
             }
 
             if (includeType.Contains(RepositoryType.Dbo4))

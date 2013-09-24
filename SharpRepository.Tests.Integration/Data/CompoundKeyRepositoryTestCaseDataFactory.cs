@@ -4,7 +4,7 @@ using System.Data.Entity.Infrastructure;
 using System.Linq;
 using NUnit.Framework;
 using SharpRepository.Tests.Integration.TestObjects;
-using SharpRepository.Ef5Repository;
+using SharpRepository.Ef6Repository;
 using SharpRepository.InMemoryRepository;
 using SharpRepository.CacheRepository;
 
@@ -20,11 +20,11 @@ namespace SharpRepository.Tests.Integration.Data
                 yield return new TestCaseData(new InMemoryRepository<User, string, int>()).SetName("InMemoryRepository Test");
             }
 
-            if (includeType.Contains(RepositoryType.Ef5))
+            if (includeType.Contains(RepositoryType.Ef6))
             {
-                var dbPath = EfDataDirectoryFactory.Build();
+                var dbPath = Ef6DataDirectoryFactory.Build();
                 Database.DefaultConnectionFactory = new SqlCeConnectionFactory("System.Data.SqlServerCe.4.0");
-                yield return new TestCaseData(new Ef5Repository<User, string, int>(new TestObjectEntities("Data Source=" + dbPath))).SetName("EfRepository Test");
+                yield return new TestCaseData(new Ef6Repository<User, string, int>(new TestObjectEntities("Data Source=" + dbPath))).SetName("EfRepository Test");
             }
 
             if (includeType.Contains(RepositoryType.Cache))

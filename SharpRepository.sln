@@ -64,6 +64,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpRepository.Ioc.Unity",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpRepository.CouchDbRepository", "SharpRepository.CouchDbRepository\SharpRepository.CouchDbRepository.csproj", "{AEA6D95F-1D69-433D-8185-DFFCA871FC8D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpRepository.Ef6Repository", "SharpRepository.Ef6Repository\SharpRepository.Ef6Repository.csproj", "{74C5F8BD-FC2A-4D6F-A989-35B2A1650761}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -158,6 +160,10 @@ Global
 		{AEA6D95F-1D69-433D-8185-DFFCA871FC8D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AEA6D95F-1D69-433D-8185-DFFCA871FC8D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AEA6D95F-1D69-433D-8185-DFFCA871FC8D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{74C5F8BD-FC2A-4D6F-A989-35B2A1650761}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{74C5F8BD-FC2A-4D6F-A989-35B2A1650761}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{74C5F8BD-FC2A-4D6F-A989-35B2A1650761}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{74C5F8BD-FC2A-4D6F-A989-35B2A1650761}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
