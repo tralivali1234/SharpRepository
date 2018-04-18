@@ -33,6 +33,7 @@ namespace SharpRepository.EfRepository
         {
             return new EfRepository<T, TKey, TKey2, TKey3>(GetDbContext());
         }
+
         public override ICompoundKeyRepository<T> GetCompoundKeyInstance<T>()
         {
             return new EfCompoundKeyRepository<T>(GetDbContext());
@@ -41,45 +42,38 @@ namespace SharpRepository.EfRepository
         private DbContext GetDbContext()
         {
             var connectionString = RepositoryConfiguration["connectionString"];
-
-            // check for required parameters
-            if (RepositoryDependencyResolver.Current == null && String.IsNullOrEmpty(connectionString))
-            {
-                throw new ConfigurationErrorsException("The connectionString attribute is required in order to use the Ef5Repository via the configuration file, unless you set the RepositoryDependencyResolver to use an Ioc container.");
-            }
-
+            var dbContextTypeString = RepositoryConfiguration["dbContextType"];
             Type dbContextType = null;
-
-            var tmpDbContextType = RepositoryConfiguration["dbContextType"];
-            if (!String.IsNullOrEmpty(tmpDbContextType))
+            if (!String.IsNullOrEmpty(dbContextTypeString))
             {
-                dbContextType = Type.GetType(tmpDbContextType);
+                dbContextType = Type.GetType(dbContextTypeString);
             }
 
             // TODO: look at dbContextType (from Enyim.Caching configuration bits) and how it caches, see about implementing cache or expanding FastActivator to take parameters
             DbContext dbContext = null;
 
-            // if there is an IOC dependency resolver configured then use that one to get the DbContext, this will allow sharing of context across multiple repositories if the IOC is configured that way
-            if (RepositoryDependencyResolver.Current != null)
+            // the default way of getting a DbContext if there is no Ioc container setup
+            if (dbContextType != null)
             {
-                dbContext = dbContextType == null
-                                ? RepositoryDependencyResolver.Current.Resolve<DbContext>()
-                                : (DbContext)RepositoryDependencyResolver.Current.Resolve(dbContextType);
+                dbContext = String.IsNullOrEmpty(connectionString) ?
+                        (DbContext)Activator.CreateInstance(dbContextType) :
+                        (DbContext)Activator.CreateInstance(dbContextType, connectionString);
 
-                // if the Ioc container doesn't throw an error but still returns null we need to alert the consumer
-                if (dbContext == null)
-                {
-                    throw new RepositoryDependencyResolverException(typeof(DbContext));
-                }
-            }
-            else // the default way of getting a DbContext if there is no Ioc container setup
-            {
-                dbContext = dbContextType == null
-                                ? new DbContext(connectionString)
-                                : (DbContext)Activator.CreateInstance(dbContextType, connectionString);
+                return dbContext;
             }
 
-            return dbContext;
+            // check for required parameters
+            if (RepositoryDependencyResolver.Current == null)
+            {
+                throw new ConfigurationErrorsException("The connectionString and dbContextType attribute are required in order to use the EfRepository via the configuration file, unless you set the RepositoryDependencyResolver to use an Ioc container.");
+            }
+            else
+            {
+                // if there is an IOC dependency resolver configured then use that one to get the DbContext, this will allow sharing of context across multiple repositories if the IOC is configured that way
+                return dbContextType == null
+                                    ? RepositoryDependencyResolver.Current.Resolve<DbContext>()
+                                    : (DbContext)RepositoryDependencyResolver.Current.Resolve(dbContextType);
+            }
         }
     }
 }

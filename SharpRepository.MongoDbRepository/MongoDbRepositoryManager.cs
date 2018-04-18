@@ -1,14 +1,16 @@
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace SharpRepository.MongoDbRepository
 {
     public static class MongoDbRepositoryManager
     {
-        public static bool ServerIsRunning(MongoServer server)
+        public static bool ServerIsRunning(IMongoDatabase db)
         {
             try
             {
-                server.Ping();
+                db.RunCommandAsync((Command<BsonDocument>)"{ping:1}")
+                        .Wait();
             }
             catch
             {
@@ -18,9 +20,20 @@ namespace SharpRepository.MongoDbRepository
             return true;
         }
 
-        public static bool ServerIsRunning(string connectionString)
+        public static bool ServerIsRunning(string connectionString, SslSettings sslSettings = null)
         {
-            return ServerIsRunning(new MongoClient(connectionString).GetServer());
+            MongoClient cli;
+            if (sslSettings != null)
+            {
+                var settings = MongoClientSettings.FromUrl(new MongoUrl(connectionString));
+                settings.SslSettings = sslSettings;
+                cli = new MongoClient(settings);
+            }
+            else
+                cli = new MongoClient(connectionString);
+
+            var dbName = DatabaseName(connectionString);
+            return ServerIsRunning(cli.GetDatabase(dbName));
         }
 
         public static string DatabaseName(string connectionString)
@@ -28,11 +41,20 @@ namespace SharpRepository.MongoDbRepository
             return MongoUrl.Create(connectionString).DatabaseName;
         }
 
-        public static void DropDatabase(string connectionString)
+        public static void DropDatabase(string connectionString, SslSettings sslSettings = null)
         {
-            var server = new MongoClient(connectionString).GetServer();
-            var db = DatabaseName(connectionString);
-            server.DropDatabase(db);
+            MongoClient cli;
+            if (sslSettings != null)
+            {
+                var settings = MongoClientSettings.FromUrl(new MongoUrl(connectionString));
+                settings.SslSettings = sslSettings;
+                cli = new MongoClient(settings);
+            }
+            else
+                cli = new MongoClient(connectionString);
+
+            var dbName = DatabaseName(connectionString);
+            cli.DropDatabase(dbName);
         }
     }
 }

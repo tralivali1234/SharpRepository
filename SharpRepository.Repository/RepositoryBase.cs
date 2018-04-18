@@ -23,14 +23,14 @@ namespace SharpRepository.Repository
                 throw new InvalidOperationException("The repository type and the primary key type can not be the same.");
             }
 
+            GenerateKeyOnAdd = true;
             Conventions = new RepositoryConventions();
             CachingStrategy = cachingStrategy ?? new NoCachingStrategy<T, TKey>(); // sets QueryManager as well
             // the CachePrefix is set to the default convention in the CachingStrategyBase class, the user to override when passing in an already created CachingStrategy class
 
             var entityType = typeof(T);
             _typeName = entityType.Name;
-
-            _aspects = entityType.GetAllAttributes<RepositoryActionBaseAttribute>(inherit: true)
+            _aspects = entityType.GetTypeInfo().GetAllAttributes<RepositoryActionBaseAttribute>(inherit: true)
                 .OrderBy(x => x.Order)
                 .ToDictionary(a => a.GetType().FullName, a => a);
 
@@ -58,9 +58,9 @@ namespace SharpRepository.Repository
 
         public Type EntityType
         {
-            get { return typeof (T); }
+            get { return typeof(T); }
         }
-        
+
         public Type KeyType
         {
             get { return typeof(TKey); }
@@ -72,7 +72,7 @@ namespace SharpRepository.Repository
         {
             get { return _typeName; }
         }
-        
+
         public bool CacheUsed
         {
             get { return QueryManager.CacheUsed; }
@@ -96,21 +96,21 @@ namespace SharpRepository.Repository
         {
             CachingStrategy.ClearAll();
         }
-      
+
         private bool BatchMode { get; set; }
 
-        public ICachingStrategy<T, TKey> CachingStrategy 
+        public ICachingStrategy<T, TKey> CachingStrategy
         {
-            get { return _cachingStrategy; } 
+            get { return _cachingStrategy; }
             set
             {
                 _cachingStrategy = value ?? new NoCachingStrategy<T, TKey>();
-				QueryManager = new QueryManager<T, TKey>(_cachingStrategy)
-				               {
-					               CacheEnabled = !(_cachingStrategy is NoCachingStrategy<T, TKey>)
-				               };
+                QueryManager = new QueryManager<T, TKey>(_cachingStrategy)
+                {
+                    CacheEnabled = !(_cachingStrategy is NoCachingStrategy<T, TKey>)
+                };
             }
-        } 
+        }
 
         public bool CachingEnabled
         {
@@ -126,7 +126,6 @@ namespace SharpRepository.Repository
         protected abstract IQueryable<T> GetAllQuery(IFetchStrategy<T> fetchStrategy);
         protected abstract IQueryable<T> GetAllQuery(IQueryOptions<T> queryOptions, IFetchStrategy<T> fetchStrategy);
 
-
         //Managing aspects
         protected void DisableAspect(Type aspectType)
         {
@@ -134,17 +133,19 @@ namespace SharpRepository.Repository
             var aspect = _aspects[aspectType.FullName];
             aspect.Enabled = false;
         }
+
         protected void EnableAspect(Type aspectType)
         {
             ValidateArgument(aspectType);
             var aspect = _aspects[aspectType.FullName];
             aspect.Enabled = true;
         }
+
         private void ValidateArgument(Type aspectType)
         {
             var baseAttribute = typeof(RepositoryActionBaseAttribute);
 
-            if (!baseAttribute.IsAssignableFrom(aspectType))
+            if (!baseAttribute.GetTypeInfo().IsAssignableFrom(aspectType.GetTypeInfo()))
                 throw new ArgumentException(string.Format("Only aspects derived from a type {0} are valid arguments", baseAttribute.Name));
 
             if (!_aspects.ContainsKey(aspectType.FullName))
@@ -266,11 +267,12 @@ namespace SharpRepository.Repository
 
                 // if the aspect altered the specificaiton then we need to run a FindAll with that specification
                 IEnumerable<TResult> results;
+                var selectFunc = context.Selector.Compile();
 
                 if (context.Specification == null)
                 {
                     results = QueryManager.ExecuteGetAll(
-                        () => GetAllQuery(context.QueryOptions, fetchStrategy).Select(context.Selector).ToList(),
+                        () => GetAllQuery(context.QueryOptions, fetchStrategy).Select(selectFunc).ToList(),
                         context.Selector,
                         context.QueryOptions
                         );
@@ -280,7 +282,7 @@ namespace SharpRepository.Repository
                     context.Specification.FetchStrategy = fetchStrategy;
 
                     results = QueryManager.ExecuteFindAll(
-                        () => FindAllQuery(context.Specification, context.QueryOptions).Select(context.Selector).ToList(),
+                        () => FindAllQuery(context.Specification, context.QueryOptions).Select(selectFunc).ToList(),
                         context.Specification,
                         context.Selector,
                         context.QueryOptions
@@ -309,7 +311,7 @@ namespace SharpRepository.Repository
             return GetAll(selector, queryOptions, RepositoryHelper.BuildFetchStrategy(includePaths));
         }
 
-        
+
 
         // These are the actual implementation that the derived class needs to implement
         protected abstract T GetQuery(TKey key, IFetchStrategy<T> fetchStrategy);
@@ -396,9 +398,10 @@ namespace SharpRepository.Repository
                     );
 
                 // return the entity with the selector applied to it
+                var selectFunc = selector.Compile();
                 var selectedResult = result == null
                     ? default(TResult)
-                    : new[] {result}.AsQueryable().Select(selector).First();
+                    : new[] { result }.AsEnumerable().Select(selectFunc).First();
 
                 context.Result = selectedResult;
                 RunAspect(attribute => attribute.OnGetExecuted(context));
@@ -439,13 +442,12 @@ namespace SharpRepository.Repository
 
         public virtual IDictionary<TKey, T> GetManyAsDictionary(IEnumerable<TKey> keys)
         {
-            return  GetMany(keys).ToDictionary(GetPrimaryKey);
+            return GetMany(keys).ToDictionary(GetPrimaryKey);
         }
 
         public bool Exists(TKey key)
         {
-            T entity;
-            return TryGet(key, out entity);
+            return TryGet(key, out T entity);
         }
 
         public bool TryGet(TKey key, out T entity)
@@ -525,8 +527,9 @@ namespace SharpRepository.Repository
                 if (!RunAspect(attribute => attribute.OnFindAllExecuting(context)))
                     return context.Results;
 
+                var selectFunc = context.Selector.Compile();
                 var results = QueryManager.ExecuteFindAll(
-                    () => FindAllQuery(context.Specification, context.QueryOptions).Select(context.Selector).ToList(),
+                    () => FindAllQuery(context.Specification, context.QueryOptions).Select(selectFunc).ToList(),
                     context.Specification,
                     context.Selector,
                     context.QueryOptions
@@ -619,16 +622,17 @@ namespace SharpRepository.Repository
                 if (!RunAspect(attribute => attribute.OnFindExecuting(context)))
                     return context.Result;
 
+                var selectFunc = context.Selector.Compile();
                 var item = QueryManager.ExecuteFind(
                     () =>
-	                    {
+                        {
                             var result = FindQuery(context.Specification, context.QueryOptions);
-	                        if (result == null)
-	                            return default(TResult);
+                            if (result == null)
+                                return default(TResult);
 
-	                        var results = new[] { result };
-                            return results.AsQueryable().Select(context.Selector).First();
-	                    },
+                            var results = new[] { result };
+                            return results.AsEnumerable().Select(selectFunc).First();
+                        },
 
                     context.Specification,
                     context.Selector,
@@ -649,13 +653,12 @@ namespace SharpRepository.Repository
 
         public bool Exists(ISpecification<T> criteria)
         {
-            T entity;
-            return TryFind(criteria, out entity);
+            return TryFind(criteria, out T entity);
         }
 
         public bool TryFind(ISpecification<T> criteria, out T entity)
         {
-            return TryFind(criteria, ( IQueryOptions<T>)null, out entity);
+            return TryFind(criteria, (IQueryOptions<T>)null, out entity);
         }
 
         public bool TryFind(ISpecification<T> criteria, IQueryOptions<T> queryOptions, out T entity)
@@ -728,8 +731,7 @@ namespace SharpRepository.Repository
 
         public bool Exists(Expression<Func<T, bool>> predicate)
         {
-            T entity;
-            return TryFind(predicate, out entity);
+            return TryFind(predicate, out T entity);
         }
 
         public bool TryFind(Expression<Func<T, bool>> predicate, out T entity)
@@ -782,15 +784,18 @@ namespace SharpRepository.Repository
 
         public virtual IEnumerable<TResult> GroupBy<TGroupKey, TResult>(ISpecification<T> criteria, Expression<Func<T, TGroupKey>> keySelector, Expression<Func<IGrouping<TGroupKey, T>, TResult>> resultSelector)
         {
+            var predicate = criteria?.Predicate?.Compile();
+            var keySelectFunc = keySelector.Compile();
+            var resultSelectFunc = resultSelector.Compile();
             return QueryManager.ExecuteGroup(
                 () =>
                 {
-                    var query = criteria == null ? BaseQuery() : BaseQuery().Where(criteria.Predicate);
+                    var query = criteria == null ? BaseQuery() : BaseQuery().Where(predicate);
 
                     //                            if (queryOptions != null)
                     //                                query = queryOptions.Apply(query);
 
-                    return query.GroupBy(keySelector).OrderBy(x => x.Key).Select(resultSelector).ToList();
+                    return query.GroupBy(keySelectFunc).OrderBy(x => x.Key).Select(resultSelectFunc).ToList();
                 },
                 keySelector,
                 resultSelector,
@@ -810,8 +815,9 @@ namespace SharpRepository.Repository
 
         public virtual long LongCount(ISpecification<T> criteria)
         {
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteLongCount(
-                () => criteria == null ? BaseQuery().LongCount() : BaseQuery().LongCount(criteria.Predicate),
+                () => criteria == null ? BaseQuery().LongCount() : BaseQuery().LongCount(predicate),
                 criteria
                 );
         }
@@ -828,8 +834,9 @@ namespace SharpRepository.Repository
 
         public virtual int Count(ISpecification<T> criteria)
         {
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteCount(
-                () => criteria == null ? BaseQuery().Count() : BaseQuery().Count(criteria.Predicate),
+                () => criteria == null ? BaseQuery().Count() : BaseQuery().Count(predicate),
                 criteria
                 );
         }
@@ -846,8 +853,10 @@ namespace SharpRepository.Repository
 
         public virtual int Sum(ISpecification<T> criteria, Expression<Func<T, int>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteSum(
-                () => criteria == null ? BaseQuery().Sum(selector) : BaseQuery().Where(criteria.Predicate).Sum(selector),
+                () => criteria == null ? BaseQuery().Sum(selectFunc) : BaseQuery().Where(predicate).Sum(selectFunc),
                 selector,
                 criteria
                 );
@@ -865,8 +874,10 @@ namespace SharpRepository.Repository
 
         public virtual int? Sum(ISpecification<T> criteria, Expression<Func<T, int?>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteSum(
-                () => criteria == null ? BaseQuery().Sum(selector) : BaseQuery().Where(criteria.Predicate).Sum(selector),
+                () => criteria == null ? BaseQuery().Sum(selectFunc) : BaseQuery().Where(predicate).Sum(selectFunc),
                 selector,
                 criteria
                 );
@@ -884,8 +895,10 @@ namespace SharpRepository.Repository
 
         public virtual long Sum(ISpecification<T> criteria, Expression<Func<T, long>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteSum(
-                () => criteria == null ? BaseQuery().Sum(selector) : BaseQuery().Where(criteria.Predicate).Sum(selector),
+                () => criteria == null ? BaseQuery().Sum(selectFunc) : BaseQuery().Where(predicate).Sum(selectFunc),
                 selector,
                 criteria
                 );
@@ -903,8 +916,10 @@ namespace SharpRepository.Repository
 
         public virtual long? Sum(ISpecification<T> criteria, Expression<Func<T, long?>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteSum(
-                () => criteria == null ? BaseQuery().Sum(selector) : BaseQuery().Where(criteria.Predicate).Sum(selector),
+                () => criteria == null ? BaseQuery().Sum(selectFunc) : BaseQuery().Where(predicate).Sum(selectFunc),
                 selector,
                 criteria
                 );
@@ -922,8 +937,10 @@ namespace SharpRepository.Repository
 
         public virtual decimal Sum(ISpecification<T> criteria, Expression<Func<T, decimal>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteSum(
-                () => criteria == null ? BaseQuery().Sum(selector) : BaseQuery().Where(criteria.Predicate).Sum(selector),
+                () => criteria == null ? BaseQuery().Sum(selectFunc) : BaseQuery().Where(predicate).Sum(selectFunc),
                 selector,
                 criteria
                 );
@@ -941,8 +958,10 @@ namespace SharpRepository.Repository
 
         public virtual decimal? Sum(ISpecification<T> criteria, Expression<Func<T, decimal?>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteSum(
-                () => criteria == null ? BaseQuery().Sum(selector) : BaseQuery().Where(criteria.Predicate).Sum(selector),
+                () => criteria == null ? BaseQuery().Sum(selectFunc) : BaseQuery().Where(predicate).Sum(selectFunc),
                 selector,
                 criteria
                 );
@@ -960,8 +979,10 @@ namespace SharpRepository.Repository
 
         public virtual double Sum(ISpecification<T> criteria, Expression<Func<T, double>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteSum(
-                () => criteria == null ? BaseQuery().Sum(selector) : BaseQuery().Where(criteria.Predicate).Sum(selector),
+                () => criteria == null ? BaseQuery().Sum(selectFunc) : BaseQuery().Where(predicate).Sum(selectFunc),
                 selector,
                 criteria
                 );
@@ -979,8 +1000,10 @@ namespace SharpRepository.Repository
 
         public virtual double? Sum(ISpecification<T> criteria, Expression<Func<T, double?>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteSum(
-                () => criteria == null ? BaseQuery().Sum(selector) : BaseQuery().Where(criteria.Predicate).Sum(selector),
+                () => criteria == null ? BaseQuery().Sum(selectFunc) : BaseQuery().Where(predicate).Sum(selectFunc),
                 selector,
                 criteria
                 );
@@ -998,8 +1021,10 @@ namespace SharpRepository.Repository
 
         public virtual float Sum(ISpecification<T> criteria, Expression<Func<T, float>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteSum(
-                () => criteria == null ? BaseQuery().Sum(selector) : BaseQuery().Where(criteria.Predicate).Sum(selector),
+                () => criteria == null ? BaseQuery().Sum(selectFunc) : BaseQuery().Where(predicate).Sum(selectFunc),
                 selector,
                 criteria
                 );
@@ -1017,8 +1042,10 @@ namespace SharpRepository.Repository
 
         public virtual float? Sum(ISpecification<T> criteria, Expression<Func<T, float?>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteSum(
-                () => criteria == null ? BaseQuery().Sum(selector) : BaseQuery().Where(criteria.Predicate).Sum(selector),
+                () => criteria == null ? BaseQuery().Sum(selectFunc) : BaseQuery().Where(predicate).Sum(selectFunc),
                 selector,
                 criteria
                 );
@@ -1036,8 +1063,10 @@ namespace SharpRepository.Repository
 
         public virtual double Average(ISpecification<T> criteria, Expression<Func<T, int>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteAverage(
-                () => criteria == null ? BaseQuery().Average(selector) : BaseQuery().Where(criteria.Predicate).Average(selector),
+                () => criteria == null ? BaseQuery().Average(selectFunc) : BaseQuery().Where(predicate).Average(selectFunc),
                 selector,
                 criteria
                 );
@@ -1055,8 +1084,10 @@ namespace SharpRepository.Repository
 
         public virtual double? Average(ISpecification<T> criteria, Expression<Func<T, int?>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteAverage(
-                () => criteria == null ? BaseQuery().Average(selector) : BaseQuery().Where(criteria.Predicate).Average(selector),
+                () => criteria == null ? BaseQuery().Average(selectFunc) : BaseQuery().Where(predicate).Average(selectFunc),
                 selector,
                 criteria
                 );
@@ -1074,8 +1105,10 @@ namespace SharpRepository.Repository
 
         public virtual double Average(ISpecification<T> criteria, Expression<Func<T, long>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteAverage(
-                () => criteria == null ? BaseQuery().Average(selector) : BaseQuery().Where(criteria.Predicate).Average(selector),
+                () => criteria == null ? BaseQuery().Average(selectFunc) : BaseQuery().Where(predicate).Average(selectFunc),
                 selector,
                 criteria
                 );
@@ -1093,8 +1126,10 @@ namespace SharpRepository.Repository
 
         public virtual double? Average(ISpecification<T> criteria, Expression<Func<T, long?>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteAverage(
-                () => criteria == null ? BaseQuery().Average(selector) : BaseQuery().Where(criteria.Predicate).Average(selector),
+                () => criteria == null ? BaseQuery().Average(selectFunc) : BaseQuery().Where(predicate).Average(selectFunc),
                 selector,
                 criteria
                 );
@@ -1112,8 +1147,10 @@ namespace SharpRepository.Repository
 
         public virtual decimal Average(ISpecification<T> criteria, Expression<Func<T, decimal>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteAverage(
-                () => criteria == null ? BaseQuery().Average(selector) : BaseQuery().Where(criteria.Predicate).Average(selector),
+                () => criteria == null ? BaseQuery().Average(selectFunc) : BaseQuery().Where(predicate).Average(selectFunc),
                 selector,
                 criteria
                 );
@@ -1131,8 +1168,10 @@ namespace SharpRepository.Repository
 
         public virtual decimal? Average(ISpecification<T> criteria, Expression<Func<T, decimal?>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteAverage(
-                () => criteria == null ? BaseQuery().Average(selector) : BaseQuery().Where(criteria.Predicate).Average(selector),
+                () => criteria == null ? BaseQuery().Average(selectFunc) : BaseQuery().Where(predicate).Average(selectFunc),
                 selector,
                 criteria
                 );
@@ -1150,8 +1189,10 @@ namespace SharpRepository.Repository
 
         public virtual double Average(ISpecification<T> criteria, Expression<Func<T, double>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteAverage(
-                () => criteria == null ? BaseQuery().Average(selector) : BaseQuery().Where(criteria.Predicate).Average(selector),
+                () => criteria == null ? BaseQuery().Average(selectFunc) : BaseQuery().Where(predicate).Average(selectFunc),
                 selector,
                 criteria
                 );
@@ -1169,8 +1210,10 @@ namespace SharpRepository.Repository
 
         public virtual double? Average(ISpecification<T> criteria, Expression<Func<T, double?>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteAverage(
-                () => criteria == null ? BaseQuery().Average(selector) : BaseQuery().Where(criteria.Predicate).Average(selector),
+                () => criteria == null ? BaseQuery().Average(selectFunc) : BaseQuery().Where(predicate).Average(selectFunc),
                 selector,
                 criteria
                 );
@@ -1188,8 +1231,10 @@ namespace SharpRepository.Repository
 
         public virtual float Average(ISpecification<T> criteria, Expression<Func<T, float>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteAverage(
-                () => criteria == null ? BaseQuery().Average(selector) : BaseQuery().Where(criteria.Predicate).Average(selector),
+                () => criteria == null ? BaseQuery().Average(selectFunc) : BaseQuery().Where(predicate).Average(selectFunc),
                 selector,
                 criteria
                 );
@@ -1207,8 +1252,10 @@ namespace SharpRepository.Repository
 
         public virtual float? Average(ISpecification<T> criteria, Expression<Func<T, float?>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteAverage(
-                () => criteria == null ? BaseQuery().Average(selector) : BaseQuery().Where(criteria.Predicate).Average(selector),
+                () => criteria == null ? BaseQuery().Average(selectFunc) : BaseQuery().Where(predicate).Average(selectFunc),
                 selector,
                 criteria
                 );
@@ -1226,8 +1273,10 @@ namespace SharpRepository.Repository
 
         public virtual TResult Min<TResult>(ISpecification<T> criteria, Expression<Func<T, TResult>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteMin(
-                () => criteria == null ? BaseQuery().Min(selector) : BaseQuery().Where(criteria.Predicate).Min(selector),
+                () => criteria == null ? BaseQuery().Min(selectFunc) : BaseQuery().Where(predicate).Min(selectFunc),
                 selector,
                 criteria
                 );
@@ -1245,8 +1294,10 @@ namespace SharpRepository.Repository
 
         public virtual TResult Max<TResult>(ISpecification<T> criteria, Expression<Func<T, TResult>> selector)
         {
+            var selectFunc = selector.Compile();
+            var predicate = criteria?.Predicate?.Compile();
             return QueryManager.ExecuteMax(
-                () => criteria == null ? BaseQuery().Max(selector) : BaseQuery().Where(criteria.Predicate).Max(selector),
+                () => criteria == null ? BaseQuery().Max(selectFunc) : BaseQuery().Where(predicate).Max(selectFunc),
                 selector,
                 criteria
                 );
@@ -1286,7 +1337,7 @@ namespace SharpRepository.Repository
         {
             return GroupLongCount(predicate == null ? null : CreateSpecification(predicate), selector);
         }
-        
+
 
         private bool RunAspect(Func<RepositoryActionBaseAttribute, bool> action)
         {
@@ -1340,15 +1391,14 @@ namespace SharpRepository.Repository
 
             Save();
 
-	        NotifyQueryManagerOfAddedEntity(entity);
+            NotifyQueryManagerOfAddedEntity(entity);
         }
 
-	    private void NotifyQueryManagerOfAddedEntity(T entity)
-	    {
-			TKey key;
-			if (GetPrimaryKey(entity, out key))
-				QueryManager.OnItemAdded(key, entity);
-	    }
+        private void NotifyQueryManagerOfAddedEntity(T entity)
+        {
+            if (GetPrimaryKey(entity, out TKey key))
+                QueryManager.OnItemAdded(key, entity);
+        }
 
         public void Add(IEnumerable<T> entities)
         {
@@ -1405,15 +1455,14 @@ namespace SharpRepository.Repository
 
             Save();
 
-	        NotifyQueryManagerOfDeletedEntity(entity);
+            NotifyQueryManagerOfDeletedEntity(entity);
         }
 
-		private void NotifyQueryManagerOfDeletedEntity(T entity)
-		{
-			TKey key;
-			if (GetPrimaryKey(entity, out key))
-				QueryManager.OnItemDeleted(key, entity);
-		}
+        private void NotifyQueryManagerOfDeletedEntity(T entity)
+        {
+            if (GetPrimaryKey(entity, out TKey key))
+                QueryManager.OnItemDeleted(key, entity);
+        }
 
         public void Delete(IEnumerable<T> entities)
         {
@@ -1499,28 +1548,27 @@ namespace SharpRepository.Repository
         }
 
         // used from the Update method above and the Save below for the batch save
-	    private void ProcessUpdate(T entity, bool batchMode)
-	    {
+        private void ProcessUpdate(T entity, bool batchMode)
+        {
             if (!RunAspect(attribute => attribute.OnUpdateExecuting(entity, _repositoryActionContext)))
                 return;
 
-		    UpdateItem(entity);
+            UpdateItem(entity);
 
             RunAspect(attribute => attribute.OnUpdateExecuted(entity, _repositoryActionContext));
 
-		    if (batchMode) return;
+            if (batchMode) return;
 
-		    Save();
+            Save();
 
-		    NotifyQueryManagerOfUpdatedEntity(entity);
-	    }
+            NotifyQueryManagerOfUpdatedEntity(entity);
+        }
 
-	    private void NotifyQueryManagerOfUpdatedEntity(T entity)
-	    {
-			TKey key;
-			if (GetPrimaryKey(entity, out key))
-				QueryManager.OnItemUpdated(key, entity);
-	    }
+        private void NotifyQueryManagerOfUpdatedEntity(T entity)
+        {
+            if (GetPrimaryKey(entity, out TKey key))
+                QueryManager.OnItemUpdated(key, entity);
+        }
 
         public void Update(IEnumerable<T> entities)
         {
@@ -1555,7 +1603,7 @@ namespace SharpRepository.Repository
                     return;
 
                 SaveChanges();
-            
+
                 QueryManager.OnSaveExecuted();
 
                 RunAspect(attribute => attribute.OnSaveExecuted(_repositoryActionContext));
@@ -1582,10 +1630,11 @@ namespace SharpRepository.Repository
         }
         public string TraceInfo { get; protected set; }
 
+        public virtual bool GenerateKeyOnAdd { get; set; }
+
         public TKey GetPrimaryKey(T entity)
         {
-            TKey key;
-            if (GetPrimaryKey(entity, out key))
+            if (GetPrimaryKey(entity, out TKey key))
             {
                 return key;
             }
@@ -1593,7 +1642,7 @@ namespace SharpRepository.Repository
             return default(TKey);
         }
 
-        protected virtual bool GetPrimaryKey(T entity, out TKey key) 
+        protected virtual bool GetPrimaryKey(T entity, out TKey key)
         {
             key = default(TKey);
 
@@ -1603,9 +1652,9 @@ namespace SharpRepository.Repository
             if (propInfo == null)
                 return false;
 
-           key = (TKey) propInfo.GetValue(entity, null);
-           
-           return true;
+            key = (TKey)propInfo.GetValue(entity, null);
+
+            return true;
         }
 
         protected virtual bool SetPrimaryKey(T entity, TKey key)
@@ -1625,10 +1674,10 @@ namespace SharpRepository.Repository
         {
             var propInfo = GetPrimaryKeyPropertyInfo();
 
-            var parameter = Expression.Parameter(typeof (T), "x");
+            var parameter = Expression.Parameter(typeof(T), "x");
             var lambda = Expression.Lambda<Func<T, bool>>(
                     Expression.Equal(
-                        Expression.PropertyOrField(parameter, propInfo.Name), 
+                        Expression.PropertyOrField(parameter, propInfo.Name),
                         Expression.Constant(key)
                     ),
                     parameter
@@ -1691,7 +1740,12 @@ namespace SharpRepository.Repository
 
             if (String.IsNullOrEmpty(propertyName)) return null;
 
-            var propInfo = type.GetProperty(propertyName);
+            var propInfo = type.GetTypeInfo().GetDeclaredProperty(propertyName);
+            while (propInfo == null && type.GetTypeInfo().BaseType != null)
+            {
+                type = type.GetTypeInfo().BaseType;
+                propInfo = type.GetTypeInfo().GetDeclaredProperty(propertyName);
+            }
             propInfo = propInfo == null || propInfo.PropertyType != pkType ? null : propInfo;
 
             InternalCache.PrimaryKeyMapping[tupleKey] = propInfo;
@@ -1702,19 +1756,5 @@ namespace SharpRepository.Repository
         {
             RunAspect(aspect => aspect.OnError(new RepositoryActionContext<T, TKey>(this), ex));
         }
-
-//        private static PropertyInfo GetPropertyCaseInsensitive(IReflect type, string propertyName, Type propertyType)
-//        {
-//            // make the property reflection lookup case insensitive
-//            const BindingFlags bindingFlags = BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance;
-//
-//            return type.GetProperty(propertyName, bindingFlags, null, propertyType, new Type[0], new ParameterModifier[0]);
-//        }
-
-//        public abstract IEnumerator<T> GetEnumerator();
-//        IEnumerator IEnumerable.GetEnumerator()
-//        {
-//            return GetEnumerator();
-//        }
     }
 }

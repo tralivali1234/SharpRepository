@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
-using System.Runtime.Caching;
+using Microsoft.Extensions.Caching.Memory;
 using SharpRepository.Repository.Queries;
 using SharpRepository.Repository.Specifications;
 
@@ -9,18 +9,15 @@ namespace SharpRepository.Repository.Caching
 {
     public abstract class CompoundKeyCachingStrategyCommon<T> where T : class
     {
-        private ICachingProvider _cachingProvider;
         public string CachePrefix { get; set; }
         protected string TypeFullName { get; set; }
         public int? MaxResults { get; set; }
 
-        public ICachingProvider CachingProvider
-        {
-            get { return _cachingProvider; }
-            set { _cachingProvider = value ?? new InMemoryCachingProvider(); }
-        }
+        public ICachingProvider CachingProvider { get; set; }
 
         internal CompoundKeyCachingStrategyCommon() { }
+
+        internal CompoundKeyCachingStrategyCommon(int? maxResults) : this(maxResults, null) { }
 
         internal CompoundKeyCachingStrategyCommon(int? maxResults, ICachingProvider cachingProvider)
         {
@@ -131,10 +128,9 @@ namespace SharpRepository.Repository.Caching
             if (!(queryOptions is IPagingOptions))
                 return true;
 
-            int totalItems;
             // there is a PagingOptions passed in so we want to make sure that both the results and the queryOptions are in cache
             //      this is a safety in case the caching provider kicked one of them out
-            if (IsPagingTotalInCache(cacheKey, out totalItems))
+            if (IsPagingTotalInCache(cacheKey, out int totalItems))
             {
                 ((PagingOptions<T>)queryOptions).TotalItems = totalItems;
                 return true;
@@ -151,8 +147,8 @@ namespace SharpRepository.Repository.Caching
 
         private int GetCachingPrefixCounter()
         {
-            int counter;
-            return !CachingProvider.Get(GetCachingPrefixCounterKey(), out counter) ? 1 : counter;
+
+            return !CachingProvider.Get(GetCachingPrefixCounterKey(), out int counter) ? 1 : counter;
         }
 
         private string GetCachingPrefixCounterKey()
@@ -163,7 +159,7 @@ namespace SharpRepository.Repository.Caching
 
         private int IncrementCachingPrefixCounter()
         {
-            return CachingProvider.Increment(GetCachingPrefixCounterKey(), 1, 1, CacheItemPriority.NotRemovable);
+            return CachingProvider.Increment(GetCachingPrefixCounterKey(), 1, 1, CacheItemPriority.NeverRemove);
         }
 
         protected void ClearCache(string cacheKey)

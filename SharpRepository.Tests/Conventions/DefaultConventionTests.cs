@@ -1,18 +1,29 @@
-﻿using NUnit.Framework;
+﻿using Microsoft.Extensions.Caching.Memory;
+using NUnit.Framework;
 using SharpRepository.Repository;
 using SharpRepository.Repository.Caching;
+using SharpRepository.RavenDbRepository;
 using SharpRepository.Tests.TestObjects;
-using Should;
+using Shouldly;
+using System;
 
 namespace SharpRepository.Tests.Conventions
 {
     [TestFixture]
     public class RepositoryConventionTests
     {
+        private ICachingProvider cacheProvider;
+
+        [SetUp]
+        public void Setup()
+        {
+            cacheProvider = new InMemoryCachingProvider(new MemoryCache(new MemoryCacheOptions()));
+        }
+
         [Test]
         public void Default_PrimaryKeySuffix_Is_Id()
         {
-            DefaultRepositoryConventions.PrimaryKeySuffix.ShouldEqual("Id");
+            DefaultRepositoryConventions.PrimaryKeySuffix.ShouldBe("Id");
         }
 
         [Test]
@@ -28,7 +39,7 @@ namespace SharpRepository.Tests.Conventions
         [Test]
         public void Default_PrimaryKeyName()
         {
-            DefaultRepositoryConventions.GetPrimaryKeyName(typeof (Contact)).ShouldEqual("ContactId");
+            DefaultRepositoryConventions.GetPrimaryKeyName(typeof(Contact)).ShouldBe("ContactId");
         }
 
         [Test]
@@ -38,7 +49,7 @@ namespace SharpRepository.Tests.Conventions
 
             DefaultRepositoryConventions.GetPrimaryKeyName = type => "PK_" + type.Name + "_Id";
 
-            DefaultRepositoryConventions.GetPrimaryKeyName(typeof(TestConventionObject)).ShouldEqual("PK_TestConventionObject_Id");
+            DefaultRepositoryConventions.GetPrimaryKeyName(typeof(TestConventionObject)).ShouldBe("PK_TestConventionObject_Id");
 
             DefaultRepositoryConventions.GetPrimaryKeyName = orig;
         }
@@ -46,7 +57,7 @@ namespace SharpRepository.Tests.Conventions
         [Test]
         public void Default_CachePrefix()
         {
-            var repos = new InMemoryRepository.InMemoryRepository<Contact>(new StandardCachingStrategy<Contact, int>());
+            var repos = new InMemoryRepository.InMemoryRepository<Contact>(new StandardCachingStrategy<Contact, int>(cacheProvider));
             repos.CachingStrategy.FullCachePrefix.ShouldStartWith(DefaultRepositoryConventions.CachePrefix);
         }
 
@@ -56,8 +67,27 @@ namespace SharpRepository.Tests.Conventions
             const string newPrefix = "TestPrefix123";
             DefaultRepositoryConventions.CachePrefix = newPrefix;
 
-            var repos = new InMemoryRepository.InMemoryRepository<Contact>(new StandardCachingStrategy<Contact, int>());
+            var repos = new InMemoryRepository.InMemoryRepository<Contact>(new StandardCachingStrategy<Contact, int>(cacheProvider));
             repos.CachingStrategy.FullCachePrefix.ShouldStartWith(newPrefix);
+        }
+
+        [Test]
+        public void RavenDb_Throws_NotSupportedException_When_GenerateKeyOnAdd_Is_Set_False()
+        {
+            var ravenDbRepo = new RavenDbRepository<Contact>();
+            Exception actualException = null;
+
+            try
+            {
+                ravenDbRepo.GenerateKeyOnAdd = false;
+            }
+            catch(Exception ex)
+            {
+                actualException = ex;
+            }
+
+            actualException.ShouldNotBeNull();
+            actualException.ShouldBeOfType<NotSupportedException>();
         }
 
         internal class TestConventionObject

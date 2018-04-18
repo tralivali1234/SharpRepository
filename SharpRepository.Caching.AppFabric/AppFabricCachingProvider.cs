@@ -1,7 +1,7 @@
 ﻿using System;
-using System.Runtime.Caching;
 using Microsoft.ApplicationServer.Caching;
 using SharpRepository.Repository.Caching;
+using Microsoft.Extensions.Caching.Memory;
 
 // Reference: http://stackoverflow.com/questions/4739548/appfabric-caching-examples-using-c-sharp
 
@@ -44,15 +44,13 @@ namespace SharpRepository.Caching.AppFabric
         /// <param name="cacheName">Name of the cache.</param>
         public AppFabricCachingProvider(DataCacheFactory cacheFactory, string cacheName = null)
         {
-            if (cacheFactory == null) throw new ArgumentNullException("cacheFactory");
-
-            CacheFactory = cacheFactory;
+            CacheFactory = cacheFactory ?? throw new ArgumentNullException("cacheFactory");
 
             // TODO: don't know enough about AppFabric to know if we should use the GetDefaultCache() if no cache name provided, or if we should use our own name like SharpRepository
             Cache = String.IsNullOrEmpty(cacheName) ? cacheFactory.GetDefaultCache() : cacheFactory.GetCache(cacheName);
         }
 
-        public void Set<T>(string key, T value, CacheItemPriority priority = CacheItemPriority.Default, int? cacheTime = null)
+        public void Set<T>(string key, T value, CacheItemPriority priority = CacheItemPriority.Normal, int? cacheTime = null)
         {
             if (String.IsNullOrEmpty(key)) throw new ArgumentNullException("key");
 
@@ -102,14 +100,13 @@ namespace SharpRepository.Caching.AppFabric
             return true;
         }
 
-        public int Increment(string key, int defaultValue, int value, CacheItemPriority priority = CacheItemPriority.Default)
+        public int Increment(string key, int defaultValue, int value, CacheItemPriority priority = CacheItemPriority.Normal)
         {
             if (String.IsNullOrEmpty(key)) throw new ArgumentNullException("key");
 
             lock (LockObject)
             {
-                int current;
-                if (!Get(key, out current))
+                if (!Get(key, out int current))
                 {
                     current = defaultValue;
                 }

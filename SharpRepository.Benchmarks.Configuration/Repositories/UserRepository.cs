@@ -1,6 +1,8 @@
-﻿using SharpRepository.Benchmarks.Configuration.Models;
+﻿using Microsoft.Extensions.Options;
+using SharpRepository.Benchmarks.Configuration.Models;
 using SharpRepository.InMemoryRepository;
 using SharpRepository.Repository;
+using SharpRepository.Repository.Configuration;
 
 namespace SharpRepository.Benchmarks.Configuration.Repositories
 {
@@ -11,6 +13,10 @@ namespace SharpRepository.Benchmarks.Configuration.Repositories
 
     public class UserFromConfigRepository : ConfigurationBasedRepository<User, int>, IUserRepository
     {
+        public UserFromConfigRepository(ISharpRepositoryConfiguration configuration, string repositoryName = null) : base(configuration, repositoryName)
+        {
+        }
+
         public User GetAdminUser()
         {
             return Find(x => x.Email == "admin@admin.com");

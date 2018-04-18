@@ -8,34 +8,39 @@ namespace SharpRepository.Ioc.StructureMap
 {
     public static class StructureMapExtensions
     {
-        public static void ForRepositoriesUseSharpRepository(this ConfigurationExpression initialization, string repositoryName = null)
+        /// <summary>
+        /// Configures StructureMap container telling to resolve IRepository and ICompoundKeyRepository with the repository from configuration
+        /// </summary>
+        /// <param name="init"></param>
+        /// <param name="configuration"></param>
+        /// <param name="repositoryName">name of repository implementation in configuration, null tell to use default in configuration</param>
+        /// <param name="lifecycle">StructureMap coping of variables default is Lifecycle.Transient</param>
+        public static void ForRepositoriesUseSharpRepository(this ConfigurationExpression init, ISharpRepositoryConfiguration configuration, string repositoryName = null, ILifecycle lifeCycle = null)
         {
-            initialization.Scan(scan => scan.IncludeNamespaceContainingType<IAmInRepository>());
+            if (lifeCycle == null)
+            {
+                lifeCycle = Lifecycles.Transient;
+            }
 
-            initialization.For(typeof(IRepository<>)).Use(new RepositoryNoKeyInstanceFactory(repositoryName));
+            init.For(typeof(IRepository<>))
+                .LifecycleIs(lifeCycle)
+                .Use(new RepositoryNoKeyInstanceFactory(configuration, repositoryName));
 
-            initialization.For(typeof(IRepository<,>)).Use(new RepositorySingleKeyInstanceFactory(repositoryName));
+            init.For(typeof(IRepository<,>))
+                .LifecycleIs(lifeCycle)
+                .Use(new RepositorySingleKeyInstanceFactory(configuration, repositoryName));
 
-            initialization.For(typeof(ICompoundKeyRepository<,,>)).Use(new RepositoryDoubleKeyInstanceFactory(repositoryName));
+            init.For(typeof(ICompoundKeyRepository<,,>))
+                .LifecycleIs(lifeCycle)
+                .Use(new RepositoryDoubleKeyInstanceFactory(configuration, repositoryName));
 
-            initialization.For(typeof(ICompoundKeyRepository<,,,>)).Use(new RepositoryTripleKeyInstanceFactory(repositoryName));
+            init.For(typeof(ICompoundKeyRepository<,,,>))
+                .LifecycleIs(lifeCycle)
+                .Use(new RepositoryTripleKeyInstanceFactory(configuration, repositoryName));
 
-            initialization.For(typeof(ICompoundKeyRepository<>)).Use(new RepositoryCompoundKeyInstanceFactory(repositoryName));
-        }
-
-        public static void ForRepositoriesUseSharpRepository(this ConfigurationExpression initialization, ISharpRepositoryConfiguration configuration)
-        {
-            initialization.Scan(scan => scan.IncludeNamespaceContainingType<IAmInRepository>());
-
-            initialization.For(typeof(IRepository<>)).Use(new RepositoryNoKeyInstanceFactory(configuration));
-
-            initialization.For(typeof(IRepository<,>)).Use(new RepositorySingleKeyInstanceFactory(configuration));
-
-            initialization.For(typeof(ICompoundKeyRepository<,,>)).Use(new RepositoryDoubleKeyInstanceFactory(configuration));
-
-            initialization.For(typeof(ICompoundKeyRepository<,,,>)).Use(new RepositoryTripleKeyInstanceFactory(configuration));
-
-            initialization.For(typeof(ICompoundKeyRepository<>)).Use(new RepositoryCompoundKeyInstanceFactory(configuration));
+            init.For(typeof(ICompoundKeyRepository<>))
+                .LifecycleIs(lifeCycle)
+                .Use(new RepositoryCompoundKeyInstanceFactory(configuration, repositoryName));
         }
     }
 }

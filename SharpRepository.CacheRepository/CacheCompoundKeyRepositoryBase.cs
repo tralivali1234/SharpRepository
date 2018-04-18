@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using SharpRepository.Repository;
 using SharpRepository.Repository.Caching;
 using SharpRepository.Repository.FetchStrategies;
@@ -12,11 +13,6 @@ namespace SharpRepository.CacheRepository
     {
         private readonly string _prefix;
         private readonly ICachingProvider _cachingProvider;
-
-        internal CacheCompoundKeyRepositoryBase(string prefix, ICompoundKeyCachingStrategy<T> cachingStrategy = null)
-            : this(prefix, new InMemoryCachingProvider(), cachingStrategy)
-        {
-        }
 
         internal CacheCompoundKeyRepositoryBase(string prefix, ICachingProvider cachingProvider, ICompoundKeyCachingStrategy<T> cachingStrategy = null)
             : base(cachingStrategy)
@@ -59,8 +55,7 @@ namespace SharpRepository.CacheRepository
 
         protected override T GetQuery(params object[] keys)
         {
-            T result;
-            Items.TryGetValue(String.Join("/", keys), out result);
+            Items.TryGetValue(String.Join("/", keys), out T result);
 
             return result;
         }
@@ -70,8 +65,8 @@ namespace SharpRepository.CacheRepository
             // when you Google deep copy of generic list every answer uses either the IClonable interface on the T or having the T be Serializable
             //  since we can't really put those constraints on T I'm going to do it via reflection
 
-            var type = typeof (T);
-            var properties = type.GetProperties();
+            Type type = typeof(T);
+            var properties = type.GetTypeInfo().DeclaredProperties;
 
             var clonedList = new List<T>(list.Count);
 
@@ -91,9 +86,7 @@ namespace SharpRepository.CacheRepository
 
         protected override void AddItem(T entity)
         {
-            object[] keys;
-
-            if (!GetPrimaryKeys(entity, out keys))
+            if (!GetPrimaryKeys(entity, out object[] keys))
             {
                 throw new ArgumentException("Primary keys not set");
             }
@@ -103,22 +96,17 @@ namespace SharpRepository.CacheRepository
 
         protected override void DeleteItem(T entity)
         {
-            object[] keys;
-
-            if (!GetPrimaryKeys(entity, out keys))
+            if (!GetPrimaryKeys(entity, out object[] keys))
             {
                 throw new ArgumentException("Primary keys not set");
             }
 
-            T tmp;
-            Items.TryRemove(String.Join("/", keys), out tmp);
+            Items.TryRemove(String.Join("/", keys), out T tmp);
         }
 
         protected override void UpdateItem(T entity)
         {
-            object[] keys;
-
-            if (!GetPrimaryKeys(entity, out keys))
+            if (!GetPrimaryKeys(entity, out object[] keys))
             {
                 throw new ArgumentException("Primary keys not set");
             }
@@ -128,12 +116,10 @@ namespace SharpRepository.CacheRepository
 
         protected override void SaveChanges()
         {
-            
         }
 
         public override void Dispose()
         {
-            
         }
 
         public override string ToString()
@@ -156,10 +142,8 @@ namespace SharpRepository.CacheRepository
 
             public override bool Equals(object obj)
             {
-                if (obj is CompoundKey)
+                if (obj is CompoundKey compositeKey)
                 {
-                    var compositeKey = (CompoundKey)obj;
-
                     return Key1.Equals(compositeKey.Key1) && Key2.Equals(compositeKey.Key2);
                 }
 
@@ -196,12 +180,7 @@ namespace SharpRepository.CacheRepository
 
         private readonly string _prefix;
         private readonly ICachingProvider _cachingProvider;
-
-        internal CacheCompoundKeyRepositoryBase(string prefix, ICompoundKeyCachingStrategy<T, TKey, TKey2> cachingStrategy = null)
-            : this(prefix, new InMemoryCachingProvider(), cachingStrategy)
-        {
-        }
-
+        
         internal CacheCompoundKeyRepositoryBase(string prefix, ICachingProvider cachingProvider, ICompoundKeyCachingStrategy<T, TKey, TKey2> cachingStrategy = null)
             : base(cachingStrategy)
         {
@@ -216,9 +195,8 @@ namespace SharpRepository.CacheRepository
 
         protected override T GetQuery(TKey key, TKey2 key2)
         {
-            T result;
             var compoundKey = new CompoundKey { Key1 = key, Key2 = key2 };
-            Items.TryGetValue(compoundKey, out result);
+            Items.TryGetValue(compoundKey, out T result);
 
             return result;
         }
@@ -249,9 +227,7 @@ namespace SharpRepository.CacheRepository
 
         protected override void AddItem(T entity)
         {
-            TKey key;
-            TKey2 key2;
-            GetPrimaryKey(entity, out key, out key2);
+            GetPrimaryKey(entity, out TKey key, out TKey2 key2);
 
             var compoundKey = new CompoundKey { Key1 = key, Key2 = key2 };
             Items[compoundKey] = entity;
@@ -259,20 +235,15 @@ namespace SharpRepository.CacheRepository
 
         protected override void DeleteItem(T entity)
         {
-            TKey key;
-            TKey2 key2;
-            GetPrimaryKey(entity, out key, out key2);
+            GetPrimaryKey(entity, out TKey key, out TKey2 key2);
 
-            T tmp;
             var compoundKey = new CompoundKey { Key1 = key, Key2 = key2 };
-            Items.TryRemove(compoundKey, out tmp);
+            Items.TryRemove(compoundKey, out T tmp);
         }
 
         protected override void UpdateItem(T entity)
         {
-            TKey key;
-            TKey2 key2;
-            GetPrimaryKey(entity, out key, out key2);
+            GetPrimaryKey(entity, out TKey key, out TKey2 key2);
 
             var compoundKey = new CompoundKey { Key1 = key, Key2 = key2 };
             Items[compoundKey] = entity;
@@ -280,12 +251,10 @@ namespace SharpRepository.CacheRepository
 
         protected override void SaveChanges()
         {
-
         }
 
         public override void Dispose()
         {
-
         }
 
         public override string ToString()
@@ -310,10 +279,8 @@ namespace SharpRepository.CacheRepository
 
             public override bool Equals(object obj)
             {
-                if (obj is CompoundKey)
+                if (obj is CompoundKey compositeKey)
                 {
-                    var compositeKey = (CompoundKey)obj;
-
                     return Key1.Equals(compositeKey.Key1) && Key2.Equals(compositeKey.Key2) && Key3.Equals(compositeKey.Key2);
                 }
 
@@ -350,12 +317,7 @@ namespace SharpRepository.CacheRepository
 
         private readonly string _prefix;
         private readonly ICachingProvider _cachingProvider;
-
-        internal CacheCompoundKeyRepositoryBase(string prefix, ICompoundKeyCachingStrategy<T, TKey, TKey2, TKey3> cachingStrategy = null)
-            : this(prefix, new InMemoryCachingProvider(), cachingStrategy)
-        {
-        }
-
+        
         internal CacheCompoundKeyRepositoryBase(string prefix, ICachingProvider cachingProvider, ICompoundKeyCachingStrategy<T, TKey, TKey2, TKey3> cachingStrategy = null)
             : base(cachingStrategy)
         {
@@ -370,9 +332,8 @@ namespace SharpRepository.CacheRepository
 
         protected override T GetQuery(TKey key, TKey2 key2, TKey3 key3)
         {
-            T result;
             var compoundKey = new CompoundKey { Key1 = key, Key2 = key2, Key3 = key3 };
-            Items.TryGetValue(compoundKey, out result);
+            Items.TryGetValue(compoundKey, out T result);
 
             return result;
         }
@@ -403,10 +364,7 @@ namespace SharpRepository.CacheRepository
 
         protected override void AddItem(T entity)
         {
-            TKey key;
-            TKey2 key2;
-            TKey3 key3;
-            GetPrimaryKey(entity, out key, out key2, out key3);
+            GetPrimaryKey(entity, out TKey key, out TKey2 key2, out TKey3 key3);
 
             var compoundKey = new CompoundKey { Key1 = key, Key2 = key2, Key3 = key3 };
             Items[compoundKey] = entity;
@@ -414,22 +372,15 @@ namespace SharpRepository.CacheRepository
 
         protected override void DeleteItem(T entity)
         {
-            TKey key;
-            TKey2 key2;
-            TKey3 key3;
-            GetPrimaryKey(entity, out key, out key2, out key3);
+            GetPrimaryKey(entity, out TKey key, out TKey2 key2, out TKey3 key3);
 
-            T tmp;
             var compoundKey = new CompoundKey { Key1 = key, Key2 = key2, Key3 = key3 };
-            Items.TryRemove(compoundKey, out tmp);
+            Items.TryRemove(compoundKey, out T tmp);
         }
 
         protected override void UpdateItem(T entity)
         {
-            TKey key;
-            TKey2 key2;
-            TKey3 key3;
-            GetPrimaryKey(entity, out key, out key2, out key3);
+            GetPrimaryKey(entity, out TKey key, out TKey2 key2, out TKey3 key3);
 
             var compoundKey = new CompoundKey { Key1 = key, Key2 = key2, Key3 = key3 };
             Items[compoundKey] = entity;
@@ -437,12 +388,10 @@ namespace SharpRepository.CacheRepository
 
         protected override void SaveChanges()
         {
-
         }
 
         public override void Dispose()
         {
-
         }
 
         public override string ToString()
@@ -467,10 +416,8 @@ namespace SharpRepository.CacheRepository
 
             public override bool Equals(object obj)
             {
-                if (obj is CompoundKey)
+                if (obj is CompoundKey compositeKey)
                 {
-                    var compositeKey = (CompoundKey)obj;
-
                     return Key1.Equals(compositeKey.Key1) && Key2.Equals(compositeKey.Key2) && Key3.Equals(compositeKey.Key3);
                 }
 
@@ -492,9 +439,8 @@ namespace SharpRepository.CacheRepository
 
         protected override T GetQuery(TKey key, TKey2 key2, TKey3 key3)
         {
-            T result;
             var compoundKey = new CompoundKey { Key1 = key, Key2 = key2, Key3 = key3 };
-            _items.TryGetValue(compoundKey, out result);
+            _items.TryGetValue(compoundKey, out T result);
 
             return result;
         }
@@ -506,7 +452,6 @@ namespace SharpRepository.CacheRepository
 
             var type = typeof(T);
             var properties = type.GetProperties();
-
             var clonedList = new List<T>(list.Count);
 
             foreach (var keyValuePair in list)
@@ -525,11 +470,7 @@ namespace SharpRepository.CacheRepository
 
         protected override void AddItem(T entity)
         {
-            TKey key;
-            TKey2 key2;
-            TKey3 key3;
-
-            GetPrimaryKey(entity, out key, out key2, out key3);
+            GetPrimaryKey(entity, out TKey key, out TKey2 key2, out TKey3 key3);
 
             var compoundKey = new CompoundKey { Key1 = key, Key2 = key2, Key3 = key3 };
             _items[compoundKey] = entity;
@@ -537,22 +478,15 @@ namespace SharpRepository.CacheRepository
 
         protected override void DeleteItem(T entity)
         {
-            TKey key;
-            TKey2 key2;
-            TKey3 key3;
-            GetPrimaryKey(entity, out key, out key2, out key3);
+            GetPrimaryKey(entity, out TKey key, out TKey2 key2, out TKey3 key3);
 
-            T tmp;
             var compoundKey = new CompoundKey { Key1 = key, Key2 = key2, Key3 = key3 };
-            _items.TryRemove(compoundKey, out tmp);
+            _items.TryRemove(compoundKey, out T tmp);
         }
 
         protected override void UpdateItem(T entity)
         {
-            TKey key;
-            TKey2 key2;
-            TKey3 key3;
-            GetPrimaryKey(entity, out key, out key2, out key3);
+            GetPrimaryKey(entity, out TKey key, out TKey2 key2, out TKey3 key3);
 
             var compoundKey = new CompoundKey { Key1 = key, Key2 = key2, Key3 = key3 };
             _items[compoundKey] = entity;
@@ -560,12 +494,10 @@ namespace SharpRepository.CacheRepository
 
         protected override void SaveChanges()
         {
-
         }
 
         public override void Dispose()
         {
-
         }
 
         public override string ToString()

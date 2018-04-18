@@ -3,6 +3,7 @@ using SharpRepository.Repository.Configuration;
 using StructureMap.Building;
 using StructureMap.Pipeline;
 using System;
+using System.Reflection;
 
 namespace SharpRepository.Ioc.StructureMap.Factories
 {
@@ -10,15 +11,11 @@ namespace SharpRepository.Ioc.StructureMap.Factories
     {
         protected string repositoryName;
         protected ISharpRepositoryConfiguration configuration;
-
-        public RepositoryNoKeyInstanceFactory(string repositoryName)
-        {
-            this.repositoryName = repositoryName;
-        }
-
-        public RepositoryNoKeyInstanceFactory(ISharpRepositoryConfiguration configuration)
+        
+        public RepositoryNoKeyInstanceFactory(ISharpRepositoryConfiguration configuration, string repositoryName = null)
         {
             this.configuration = configuration;
+            this.repositoryName = repositoryName;
         }
 
         public override string Description {
@@ -43,24 +40,18 @@ namespace SharpRepository.Ioc.StructureMap.Factories
         public override Instance CloseType(Type[] types)
         {
             var instanceType = typeof(RepositoryInstance<>).MakeGenericType(types);
-            
-            if (this.configuration != null) {
-                var ctor = instanceType.GetConstructor(new[] { typeof(ISharpRepositoryConfiguration), typeof(string) });
-                return ctor.Invoke(new object[] { this.configuration }) as Instance;
-            } else {
-                var ctor = instanceType.GetConstructor(new[] { typeof(string) });
-                return ctor.Invoke(new object[] { this.repositoryName }) as Instance;
+
+            if (configuration == null) {
+                return null;
             }
+
+            var ctor = instanceType.GetConstructor(new[] { typeof(ISharpRepositoryConfiguration), typeof(string) });
+            return ctor.Invoke(new object[] { this.configuration, repositoryName }) as Instance;
         }
     }
     public class RepositoryInstance<T> : LambdaInstance<IRepository<T>> where T : class
     {
-        public RepositoryInstance(string repositoryName)
-            : base(() => (IRepository<T>)RepositoryFactory.GetInstance(typeof(T), repositoryName))
-        {
-        }
-
-        public RepositoryInstance(ISharpRepositoryConfiguration configuration)
+        public RepositoryInstance(ISharpRepositoryConfiguration configuration, string repositoryName = null)
          : base(() => (IRepository<T>)RepositoryFactory.GetInstance(typeof(T), configuration, null))
         {
         }

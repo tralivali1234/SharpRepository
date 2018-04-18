@@ -14,7 +14,7 @@ namespace SharpRepository.RavenDbRepository
 {
     public class RavenDbRepositoryBase<T, TKey> : LinqRepositoryBase<T, TKey> where T : class
     {
-        public DocumentStore DocumentStore;
+        public IDocumentStore DocumentStore;
         public  IDocumentSession Session; // TODO: public so we can access it in the AdvancedConfiguration Aspect, not sure I like this
 
         internal RavenDbRepositoryBase(ICachingStrategy<T, TKey> cachingStrategy = null) : base(cachingStrategy) 
@@ -27,12 +27,12 @@ namespace SharpRepository.RavenDbRepository
             Initialize(new DocumentStore { Url = url });
         }
 
-        internal RavenDbRepositoryBase(DocumentStore documentStore, ICachingStrategy<T, TKey> cachingStrategy = null) : base(cachingStrategy) 
+        internal RavenDbRepositoryBase(IDocumentStore documentStore, ICachingStrategy<T, TKey> cachingStrategy = null) : base(cachingStrategy) 
         {
             Initialize(documentStore);
         }  
 
-        private void Initialize(DocumentStore documentStore = null)
+        private void Initialize(IDocumentStore documentStore = null)
         {
             DocumentStore = documentStore ?? new DocumentStore { Url = "http://localhost:8080"};
             DocumentStore.Initialize();
@@ -66,7 +66,13 @@ namespace SharpRepository.RavenDbRepository
 
         protected override T GetQuery(TKey key, IFetchStrategy<T> fetchStrategy)
         {
-            return typeof(TKey) == typeof(string) ? Session.Load<T>(key as string) : base.GetQuery(key, fetchStrategy);
+            try
+            {
+                return typeof(TKey) == typeof(string) ? Session.Load<T>(key as string) : base.GetQuery(key, fetchStrategy);
+            } catch (ArgumentException)
+            {
+                return null;
+            }
         }
 
         public override IEnumerable<T> GetMany(params TKey[] keys)
@@ -303,9 +309,7 @@ namespace SharpRepository.RavenDbRepository
 
         protected override void AddItem(T entity)
         {
-            TKey id;
-            
-            if (GetPrimaryKey(entity, out id) && Equals(id, default(TKey)))
+            if (GenerateKeyOnAdd && GetPrimaryKey(entity, out TKey id) && Equals(id, default(TKey)))
             {
                 id = GeneratePrimaryKey();
                 SetPrimaryKey(entity, id);
@@ -333,12 +337,23 @@ namespace SharpRepository.RavenDbRepository
         {
             if (Session != null)
                 Session.Dispose();
-
-            if (DocumentStore != null)
-                DocumentStore.Dispose();
         }
 
-        private TKey GeneratePrimaryKey()
+        public override bool GenerateKeyOnAdd
+        {
+            get { return base.GenerateKeyOnAdd; }
+            set
+            {
+                if (value == false)
+                {
+                    throw new NotSupportedException("Raven DB driver always generates key values. SharpRepository can't avoid it.");
+                }
+
+                base.GenerateKeyOnAdd = value;
+            }
+        }
+
+        protected virtual TKey GeneratePrimaryKey()
         {
             if (typeof(TKey) == typeof(Guid))
             {

@@ -3,6 +3,7 @@ using SharpRepository.Repository.Configuration;
 using StructureMap.Building;
 using StructureMap.Pipeline;
 using System;
+using System.Reflection;
 
 namespace SharpRepository.Ioc.StructureMap.Factories
 {
@@ -10,15 +11,11 @@ namespace SharpRepository.Ioc.StructureMap.Factories
     {
         protected string repositoryName;
         protected ISharpRepositoryConfiguration configuration;
-
-        public RepositoryDoubleKeyInstanceFactory(string repositoryName)
-        {
-            this.repositoryName = repositoryName;
-        }
-
-        public RepositoryDoubleKeyInstanceFactory(ISharpRepositoryConfiguration configuration)
+        
+        public RepositoryDoubleKeyInstanceFactory(ISharpRepositoryConfiguration configuration, string repositoryName = null)
         {
             this.configuration = configuration;
+            this.repositoryName = repositoryName;
         }
 
         public override string Description {
@@ -43,26 +40,21 @@ namespace SharpRepository.Ioc.StructureMap.Factories
         public override Instance CloseType(Type[] types)
         {
             var instanceType = typeof(RepositoryInstance<,,>).MakeGenericType(types);
-            
-            if (this.configuration != null) {
-                var ctor = instanceType.GetConstructor(new[] { typeof(ISharpRepositoryConfiguration) });
-                return ctor.Invoke(new object[] { this.configuration }) as Instance;
-            } else {
-                var ctor = instanceType.GetConstructor(new[] { typeof(string) });
-                return ctor.Invoke(new object[] { this.repositoryName }) as Instance;
+
+            if (configuration == null)
+            {
+                return null;
             }
+
+            var ctor = instanceType.GetConstructor(new[] { typeof(ISharpRepositoryConfiguration), typeof(string)  });
+            return ctor.Invoke(new object[] { configuration, repositoryName }) as Instance;
         }
-}
+    }
 
     public class RepositoryInstance<T, TKey, TKey2> : LambdaInstance<ICompoundKeyRepository<T, TKey, TKey2>> where T : class, new()
     {
-        public RepositoryInstance(string repositoryName)
-            : base(() => RepositoryFactory.GetInstance<T, TKey, TKey2>( repositoryName))
-        {
-        }
-
-        public RepositoryInstance(ISharpRepositoryConfiguration configuration)
-         : base(() => RepositoryFactory.GetInstance<T, TKey, TKey2>(configuration, null))
+        public RepositoryInstance(ISharpRepositoryConfiguration configuration, string repositoryName = null)
+         : base(() => RepositoryFactory.GetInstance<T, TKey, TKey2>(configuration, repositoryName))
         {
         }
     }

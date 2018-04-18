@@ -1,7 +1,9 @@
 ﻿using System.Reflection;
 using NUnit.Framework;
 using SharpRepository.Tests.TestObjects.PrimaryKeys;
-using Should;
+using Shouldly;
+using SharpRepository.MongoDbRepository;
+using MongoDB.Driver;
 
 namespace SharpRepository.Tests.PrimaryKey
 {
@@ -11,15 +13,19 @@ namespace SharpRepository.Tests.PrimaryKey
         [Test]
         public void Should_Return_KeyInt1_Property()
         {
+            // TO DEL
+            var _databaseName = MongoUrl.Create("mongodb://localhost/test").DatabaseName;
+            var cli = new MongoClient("mongodb://localhost/test");
+
             var repos = new TestMongoDbRepository<ObjectKeys, int>();
             var propInfo = repos.TestGetPrimaryKeyPropertyInfo();
 
-            propInfo.PropertyType.ShouldEqual(typeof(int));
-            propInfo.Name.ShouldEqual("KeyInt1");
+            propInfo.PropertyType.ShouldBe(typeof(int));
+            propInfo.Name.ShouldBe("KeyInt1");
         }
     }
 
-    internal class TestMongoDbRepository<T, TKey> : MongoDbRepository.MongoDbRepository<T, TKey> where T : class, new()
+    internal class TestMongoDbRepository<T, TKey> : MongoDbRepository<T, TKey> where T : class, new()
     {
         public PropertyInfo TestGetPrimaryKeyPropertyInfo()
         {

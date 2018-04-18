@@ -9,9 +9,17 @@ using SharpRepository.Repository.Queries;
 using SharpRepository.Repository.Specifications;
 using SharpRepository.Repository.Transactions;
 using SharpRepository.Repository.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace SharpRepository.Repository
 {
+    public class ConfigurationBasedRepository<T> : ConfigurationBasedRepository<T, int> where T : class, new()
+    {
+        public ConfigurationBasedRepository(ISharpRepositoryConfiguration configuration, string repositoryName = null) : base(configuration, repositoryName)
+        {
+        }
+    }
+
     /// <summary>
     /// Inherit from this when you want to create a custom Repository and have the specific type based on the configuration file
     /// </summary>
@@ -20,21 +28,7 @@ namespace SharpRepository.Repository
     public class ConfigurationBasedRepository<T, TKey> : IRepository<T, TKey> where T : class, new()
     {
         protected readonly IRepository<T, TKey> Repository;
-
-        // we have 3 constructors so you can use the defualt sharpRepository section or specify a config section
-        // you can provide the repository name from the config file instead of whatever the default is if needed
-        // you can also provide the configuration object instead of building one from the config file
-        public ConfigurationBasedRepository(string configSection, string repositoryName)
-        {
-            Repository = RepositoryFactory.GetInstance<T, TKey>(configSection, repositoryName);
-        }
-
-        public ConfigurationBasedRepository(string repositoryName = null)
-        {
-            // Load up the repository based on the default configuration file
-            Repository = RepositoryFactory.GetInstance<T, TKey>(repositoryName);
-        }
-
+        
         public ConfigurationBasedRepository(ISharpRepositoryConfiguration configuration, string repositoryName = null)
         {
             Repository = RepositoryFactory.GetInstance<T, TKey>(configuration, repositoryName);
@@ -150,8 +144,7 @@ namespace SharpRepository.Repository
 
         public bool Exists(Expression<Func<T, bool>> predicate)
         {
-            T entity;
-            return TryFind(predicate, out entity);
+            return TryFind(predicate, out T entity);
         }
 
         public bool TryFind(Expression<Func<T, bool>> predicate, out T entity)
@@ -317,8 +310,7 @@ namespace SharpRepository.Repository
 
         public bool Exists(TKey key)
         {
-            T entity;
-            return TryGet(key, out entity);
+            return TryGet(key, out T entity);
         }
 
         public bool TryGet(TKey key, out T entity)
@@ -404,6 +396,12 @@ namespace SharpRepository.Repository
         public string TraceInfo
         {
             get { return Repository.TraceInfo; }
+        }
+
+        public bool GenerateKeyOnAdd
+        {
+            get { return Repository.GenerateKeyOnAdd; }
+            set { Repository.GenerateKeyOnAdd = value; }
         }
 
         public TKey GetPrimaryKey(T entity)

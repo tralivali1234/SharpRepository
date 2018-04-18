@@ -1,11 +1,14 @@
 ﻿using System;
 using SharpRepository.Repository.Caching;
 using SharpRepository.Repository.Configuration;
+using Enyim.Caching.Configuration;
 
 namespace SharpRepository.Caching.Memcached
 {
     public class MemCachedConfigCachingProviderFactory : ConfigCachingProviderFactory
     {
+        IMemcachedClientConfiguration ClientConfiguration { get; set; }
+
         public MemCachedConfigCachingProviderFactory(ICachingProviderConfiguration config)
             : base(config)
         {
@@ -13,12 +16,8 @@ namespace SharpRepository.Caching.Memcached
 
         public override ICachingProvider GetInstance()
         {
-            if (String.IsNullOrEmpty(CachingProviderConfiguration["sectionName"]))
-            {
-                throw new ArgumentException("sectionName is required to load the MemCachedCachingProvider");
-            }
-
-            return new MemcachedCachingProvider(CachingProviderConfiguration["sectionName"]);
+            
+            return new MemcachedCachingProvider(ClientConfiguration);
         }
     }
 }
